@@ -9,17 +9,19 @@ import (
 )
 
 var (
-	gcChan   = make(chan *gctrace, 1)
-	scvgChan = make(chan *scvgtrace, 1)
+	gcChan      = make(chan *gctrace, 1)
+	scvgChan    = make(chan *scvgtrace, 1)
+	noMatchChan = make(chan string, 1)
 )
 
 func runParserWith(line string, re *regexp.Regexp) {
 	reader := bytes.NewReader([]byte(line))
 
 	parser := Parser{
-		reader:   reader,
-		gcChan:   gcChan,
-		scvgChan: scvgChan,
+		reader:      reader,
+		GcChan:      gcChan,
+		ScvgChan:    scvgChan,
+		NoMatchChan: noMatchChan,
 	}
 
 	parser.gcRegexp = re
@@ -109,19 +111,15 @@ func TestParserWithScvgLine(t *testing.T) {
 
 func TestParserNonMatchingInput(t *testing.T) {
 	line := "INFO: test"
-	ended := make(chan bool, 1)
 
-	go func() {
-		runParserWith(line, nil)
-		ended <- true
-	}()
+	go runParserWith(line, nil)
 
 	select {
 	case <-gcChan:
 		t.Fatalf("Unexpected trace result. This input should not trigger gcChan.")
 	case <-scvgChan:
 		t.Fatalf("Unexpected trace result. This input should not trigger scvgChan.")
-	case <-ended:
+	case <-noMatchChan:
 		return
 	case <-time.After(100 * time.Millisecond):
 		t.Fatalf("Execution timed out.")

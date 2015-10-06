@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"log"
 	"regexp"
@@ -11,8 +10,8 @@ import (
 )
 
 const (
-	GCRegexpGo14 = `gc\d+\(\d+\): \d+\+\d+\+\d+\+\d+ us, \d+ -> (?P<Heap1>\d+) MB, \d+ \(\d+-\d+\) objects,( \d+ goroutines,)? \d+\/\d+\/\d+ sweeps, \d+\(\d+\) handoff, \d+\(\d+\) steal, \d+\/\d+\/\d+ yields`
-	GCRegexpGo15 = `gc .* (?P<Heap1>\d+) MB goal`
+	GCRegexpGo14 = `gc\d+\(\d+\): ([\d.]+\+?)+ us, \d+ -> (?P<Heap1>\d+) MB, \d+ \(\d+-\d+\) objects,( \d+ goroutines,)? \d+\/\d+\/\d+ sweeps, \d+\(\d+\) handoff, \d+\(\d+\) steal, \d+\/\d+\/\d+ yields`
+	GCRegexpGo15 = `gc \d+ @[\d.]+s \d+%: ([\d.]+\+?)+ ms clock, ([\d.+\/]+?)+ ms cpu, \d+->\d+->\d+ MB, (?P<Heap1>\d+) MB goal, \d+ P`
 	SCVGRegexp   = `scvg\d+: inuse: (?P<inuse>\d+), idle: (?P<idle>\d+), sys: (?P<sys>\d+), released: (?P<released>\d+), consumed: (?P<consumed>\d+) \(MB\)`
 )
 
@@ -23,19 +22,33 @@ var (
 )
 
 type Parser struct {
-	reader   io.Reader
-	gcChan   chan *gctrace
-	scvgChan chan *scvgtrace
+	reader      io.Reader
+	GcChan      chan *gctrace
+	ScvgChan    chan *scvgtrace
+	NoMatchChan chan string
 
 	gcRegexp   *regexp.Regexp
 	scvgRegexp *regexp.Regexp
 }
 
+func NewParser(r io.Reader) *Parser {
+	gcChan := make(chan *gctrace, 1)
+	scvgChan := make(chan *scvgtrace, 1)
+	noMatchChan := make(chan string, 1)
+
+	return &Parser{
+		reader:      r,
+		GcChan:      gcChan,
+		ScvgChan:    scvgChan,
+		NoMatchChan: noMatchChan,
+	}
+}
+
 func (p *Parser) Run() {
 	sc := bufio.NewScanner(p.reader)
 
-	// Set regexp based on Golang version
 	if p.gcRegexp == nil {
+		// Set regexp based on Golang version
 		if runtime.Version() == "go1.5" {
 			p.gcRegexp = gcrego15
 		} else {
@@ -47,16 +60,16 @@ func (p *Parser) Run() {
 		line := sc.Text()
 
 		if result := p.gcRegexp.FindStringSubmatch(line); result != nil {
-			p.gcChan <- parseGCTrace(p.gcRegexp, result)
+			p.GcChan <- parseGCTrace(p.gcRegexp, result)
 			continue
 		}
 
 		if result := scvgre.FindStringSubmatch(line); result != nil {
-			p.scvgChan <- parseSCVGTrace(result)
+			p.ScvgChan <- parseSCVGTrace(result)
 			continue
 		}
 
-		fmt.Println(line)
+		p.NoMatchChan <- line
 	}
 
 	if err := sc.Err(); err != nil {
