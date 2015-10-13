@@ -31,7 +31,7 @@ func main() {
 		return
 	}
 
-	subcommand := NewSubCommand(flag.Args(), StreamStderr)
+	subcommand := NewSubCommand(flag.Args())
 	parser := NewParser(subcommand.PipeRead)
 	gcvisGraph := NewGraph(strings.Join(flag.Args(), " "), GCVIS_TMPL)
 	server := NewHttpServer(*iface, *port, &gcvisGraph)
@@ -52,6 +52,13 @@ func main() {
 			gcvisGraph.AddScavengerGraphPoint(scvgTrace)
 		case output := <-parser.NoMatchChan:
 			fmt.Fprintln(os.Stderr, output)
+		case <-parser.done:
+			if subcommand.Err != nil {
+				fmt.Fprintf(os.Stderr, subcommand.Err.Error())
+				os.Exit(1)
+			}
+
+			os.Exit(0)
 		}
 	}
 }

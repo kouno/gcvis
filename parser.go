@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"io"
-	"log"
 	"regexp"
 	"runtime"
 	"strconv"
@@ -26,21 +25,21 @@ type Parser struct {
 	GcChan      chan *gctrace
 	ScvgChan    chan *scvgtrace
 	NoMatchChan chan string
+	done        chan bool
+
+	Err error
 
 	gcRegexp   *regexp.Regexp
 	scvgRegexp *regexp.Regexp
 }
 
 func NewParser(r io.Reader) *Parser {
-	gcChan := make(chan *gctrace, 1)
-	scvgChan := make(chan *scvgtrace, 1)
-	noMatchChan := make(chan string, 1)
-
 	return &Parser{
 		reader:      r,
-		GcChan:      gcChan,
-		ScvgChan:    scvgChan,
-		NoMatchChan: noMatchChan,
+		GcChan:      make(chan *gctrace, 1),
+		ScvgChan:    make(chan *scvgtrace, 1),
+		NoMatchChan: make(chan string, 1),
+		done:        make(chan bool, 1),
 	}
 }
 
@@ -73,8 +72,10 @@ func (p *Parser) Run() {
 	}
 
 	if err := sc.Err(); err != nil {
-		log.Fatal(err)
+		p.Err = err
 	}
+
+	p.done <- true
 }
 
 func parseGCTrace(gcre *regexp.Regexp, matches []string) *gctrace {
