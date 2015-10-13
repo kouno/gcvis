@@ -1,16 +1,20 @@
 package main
 
 import (
+	"io"
 	"log"
 	"os"
 	"os/exec"
+	"sync"
 )
 
 type SubCommand struct {
 	cmd       *exec.Cmd
-	PipeRead  *os.File
-	pipeWrite *os.File
-	Err       error
+	PipeRead  io.ReadCloser
+	pipeWrite io.WriteCloser
+	err       error
+
+	errMtx sync.Mutex
 }
 
 func NewSubCommand(args []string) SubCommand {
@@ -34,8 +38,18 @@ func NewSubCommand(args []string) SubCommand {
 }
 
 func (s *SubCommand) Run() {
-	if err := s.cmd.Run(); err != nil {
-		s.Err = err
-	}
+	s.setErr(s.cmd.Run())
 	s.pipeWrite.Close()
+}
+
+func (s *SubCommand) Err() error {
+	s.errMtx.Lock()
+	defer s.errMtx.Unlock()
+	return s.err
+}
+
+func (s *SubCommand) setErr(err error) {
+	s.errMtx.Lock()
+	defer s.errMtx.Unlock()
+	s.err = err
 }

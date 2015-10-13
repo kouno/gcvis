@@ -53,8 +53,13 @@ func main() {
 		case output := <-parser.NoMatchChan:
 			fmt.Fprintln(os.Stderr, output)
 		case <-parser.done:
-			if subcommand.Err != nil {
-				fmt.Fprintf(os.Stderr, subcommand.Err.Error())
+			if parser.Err != nil {
+				fmt.Fprintf(os.Stderr, parser.Err.Error())
+				os.Exit(1)
+			}
+
+			if subcommand.Err() != nil {
+				fmt.Fprintf(os.Stderr, subcommand.Err().Error())
 				os.Exit(1)
 			}
 

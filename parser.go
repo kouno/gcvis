@@ -39,7 +39,7 @@ func NewParser(r io.Reader) *Parser {
 		GcChan:      make(chan *gctrace, 1),
 		ScvgChan:    make(chan *scvgtrace, 1),
 		NoMatchChan: make(chan string, 1),
-		done:        make(chan bool, 1),
+		done:        make(chan bool),
 	}
 }
 
@@ -75,7 +75,7 @@ func (p *Parser) Run() {
 		p.Err = err
 	}
 
-	p.done <- true
+	close(p.done)
 }
 
 func parseGCTrace(gcre *regexp.Regexp, matches []string) *gctrace {

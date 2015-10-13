@@ -10,7 +10,7 @@ import (
 func TestSubCommandPipeRead(t *testing.T) {
 	cmd := []string{"/usr/bin/env", "bash", "-c", "echo hello world 1>&2"}
 	subcommand := NewSubCommand(cmd)
-	done := make(chan bool, 1)
+	done := make(chan bool)
 
 	go func() {
 		subcommand.Run()
@@ -24,7 +24,7 @@ func TestSubCommandPipeRead(t *testing.T) {
 			t.Errorf("line is not equal to 'hello world': '%v'", string(content))
 		}
 
-		done <- true
+		close(done)
 	}()
 
 	select {
@@ -38,7 +38,7 @@ func TestSubCommandPipeRead(t *testing.T) {
 func TestSubCommandFail(t *testing.T) {
 	cmd := []string{"/usr/bin/env", "bash", "-c", "echo hello world 1>&2; exit 1"}
 	subcommand := NewSubCommand(cmd)
-	done := make(chan bool, 1)
+	done := make(chan bool)
 
 	go func() {
 		subcommand.Run()
@@ -52,12 +52,12 @@ func TestSubCommandFail(t *testing.T) {
 			t.Errorf("line is not equal to 'hello world': '%v'", string(content))
 		}
 
-		done <- true
+		close(done)
 	}()
 
 	select {
 	case <-done:
-		if subcommand.Err == nil {
+		if subcommand.Err() == nil {
 			t.Errorf("Expected subcommand to have an error assigned.")
 		}
 		return
