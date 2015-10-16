@@ -19,7 +19,7 @@ func runParserWith(line string, re *regexp.Regexp) *Parser {
 }
 
 func TestParserWithMatchingInputGo15(t *testing.T) {
-	line := "gc 104 @8.154s 5%: 0.071+16+1.2+12+0.42 ms clock, 0.28+16+0+19/12/32+1.7 ms cpu, 50->51->31 MB, 52 MB goal, 4 P"
+	line := "gc 88 @3.243s 9%: 0.040+16+1.0+5.9+0.34 ms clock, 0.16+16+0+18/5.7/11+1.3 ms cpu, 32->33->19 MB, 33 MB goal, 4 P"
 
 	runParserWith(line, gcrego15)
 
